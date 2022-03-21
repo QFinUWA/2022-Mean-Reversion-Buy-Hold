@@ -1,4 +1,5 @@
 import pandas as pd
+import pandas_ta as ta
 import time
 import multiprocessing as mp
 
@@ -24,6 +25,7 @@ def logic(account, lookback): # Logic function to be used for each time interval
     today = len(lookback)-1
     if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
 
+        
         if(lookback['close'][today] < lookback['BOLD'][today]): # If current price is below lower Bollinger Band, enter a long position
             for position in account.positions: # Close all current positions
                 account.close_position(position, 1, lookback['close'][today])
@@ -54,6 +56,23 @@ def preprocess_data(list_of_stocks):
         df['MA-TP'] = df['TP'].rolling(training_period).mean() # Calculate Moving Average of Typical Price
         df['BOLU'] = df['MA-TP'] + standard_deviations*df['std'] # Calculate Upper Bollinger Band
         df['BOLD'] = df['MA-TP'] - standard_deviations*df['std'] # Calculate Lower Bollinger Band
+        
+
+        # RSI EMA
+        close_delta = df['close'].diff()
+        up = close_delta.clip(lower=0)
+        down = -1 * close_delta.clip(upper=0)
+        ma_up = up.ewm(com = training_period - 1, adjust=True, min_periods = training_period).mean()
+        ma_down = down.ewm(com = training_period - 1, adjust=True, min_periods = training_period).mean()
+        rsi = ma_up / ma_down
+        rsi = 100 - (100/(1 + rsi))
+        # https://www.roelpeters.be/many-ways-to-calculate-the-rsi-in-python-pandas/
+
+        df["RSI"] = rsi
+        
+     
+
+
         df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
         list_of_stocks_processed.append(stock + "_Processed")
     return list_of_stocks_processed
