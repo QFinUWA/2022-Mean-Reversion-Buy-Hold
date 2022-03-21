@@ -58,20 +58,28 @@ def preprocess_data(list_of_stocks):
         df['BOLD'] = df['MA-TP'] - standard_deviations*df['std'] # Calculate Lower Bollinger Band
         
 
-        # RSI EMA
+        # RSI https://www.roelpeters.be/many-ways-to-calculate-the-rsi-in-python-pandas/
         close_delta = df['close'].diff()
         up = close_delta.clip(lower=0)
         down = -1 * close_delta.clip(upper=0)
+
+        # Exponentail 
         ma_up = up.ewm(com = training_period - 1, adjust=True, min_periods = training_period).mean()
         ma_down = down.ewm(com = training_period - 1, adjust=True, min_periods = training_period).mean()
         rsi = ma_up / ma_down
         rsi = 100 - (100/(1 + rsi))
-        # https://www.roelpeters.be/many-ways-to-calculate-the-rsi-in-python-pandas/
+        df["EMA_RSI"] = rsi
 
-        df["RSI"] = rsi
-        
+        # SMA
+        ma_up = up.rolling(window = training_period).mean()
+        ma_down = down.rolling(window = training_period).mean()
+
+        rsi = ma_up / ma_down
+        rsi = 100 - (100/(1 + rsi))
+        df["SMA_RSI"] = rsi
+
      
-
+        print(df.head(50))
 
         df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
         list_of_stocks_processed.append(stock + "_Processed")
