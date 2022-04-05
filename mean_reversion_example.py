@@ -113,3 +113,5 @@ if __name__ == "__main__":
     print("standard deviations " + str(standard_deviations))
     df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
+    
+    #fixing main
