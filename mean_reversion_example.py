@@ -1,8 +1,6 @@
-from numpy import diff
 import pandas as pd
 import time
 import multiprocessing as mp
-import matplotlib.pyplot as plt
 
 # local imports
 from backtester import engine, tester
@@ -51,8 +49,6 @@ def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
     for stock in list_of_stocks:
         df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0])
-        print(df.head)
-        
         df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
         df['std'] = df['TP'].rolling(training_period).std() # Calculate Standard Deviation
         df['MA-TP'] = df['TP'].rolling(training_period).mean() # Calculate Moving Average of Typical Price
@@ -60,47 +56,6 @@ def preprocess_data(list_of_stocks):
         df['BOLD'] = df['MA-TP'] - standard_deviations*df['std'] # Calculate Lower Bollinger Band
         df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
         list_of_stocks_processed.append(stock + "_Processed")
-        
-        difference = (df['close'].diff(1).dropna())
-        
-        positive_change = 0 * difference
-        negative_change = 0 * difference
-        
-        positive_change[difference > 0] = difference[difference > 0]
-        negative_change[difference < 0] = difference[difference < 0]
-        
-        positive_change_exponential = positive_change.ewm(com=20, min_periods=training_period).mean()
-        negative_change_exponential = negative_change.ewm(com=20, min_periods=training_period).mean()
-        
-        rs = abs(positive_change_exponential / negative_change_exponential)
-        
-        rsi = 100 - 100/(1 + rs)
-        print("this is rsi")
-        print(rsi.head())
-        df['RSI'] = rsi
-        
-        plt.figure(figsize=(15,5))
-        plt.plot(df['date'], df['close'])
-        plt.title('Price chart ')
-        plt.show()
-
-
-        # plot correspondingRSI values and significant levels
-        plt.figure(figsize=(15,5))
-        plt.title('RSI chart')
-        plt.plot(df['date'], df['RSI'])
-
-        plt.axhline(0, linestyle='--', alpha=0.1)
-        plt.axhline(20, linestyle='--', alpha=0.5)
-        plt.axhline(30, linestyle='--')
-
-        plt.axhline(70, linestyle='--')
-        plt.axhline(80, linestyle='--', alpha=0.5)
-        plt.axhline(100, linestyle='--', alpha=0.1)
-        plt.show()
-        
-        
-        
     return list_of_stocks_processed
 
 if __name__ == "__main__":
