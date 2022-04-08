@@ -1,5 +1,4 @@
 import pandas as pd
-import pandas_ta as ta
 import time
 import multiprocessing as mp
 
@@ -26,17 +25,14 @@ def logic(account, lookback): # Logic function to be used for each time interval
     if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
 
         
-        if(lookback['close'][today] < lookback['BOLD'][today]): # If current price is below lower Bollinger Band, enter a long position
-            for position in account.positions: # Close all current positions
-                account.close_position(position, 1, lookback['close'][today])
-            if(account.buying_power > 0):
-                account.enter_position('long', account.buying_power, lookback['close'][today]) # Enter a long position
+        if(lookback['close'][today] > lookback['SMA_250'][today] and account.buying_power > 100): # If current price is below lower Bollinger Band, enter a long position
+            account.enter_position('long', account.buying_power, lookback['close'][today]) # Enter a long position
 
-        if(lookback['close'][today] > lookback['BOLU'][today]): # If today's price is above the upper Bollinger Band, enter a short position
+        if(lookback['close'][today] < lookback['SMA_250'][today]): # If today's price is above the upper Bollinger Band, enter a short position
             for position in account.positions: # Close all current positions
                 account.close_position(position, 1, lookback['close'][today])
-            if(account.buying_power > 0):
-                account.enter_position('short', account.buying_power, lookback['close'][today]) # Enter a short position
+            # if(account.buying_power > 0):
+            #     account.enter_position('short', account.buying_power, lookback['close'][today]) # Enter a short position
 
 '''
 preprocess_data() function:
@@ -51,43 +47,44 @@ def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
     for stock in list_of_stocks:
         df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0])
+        df = df.iloc[::1, :]
         df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
-        df['std'] = df['TP'].rolling(training_period).std() # Calculate Standard Deviation
-        df['MA-TP'] = df['TP'].rolling(training_period).mean() # Calculate Moving Average of Typical Price
-        df['BOLU'] = df['MA-TP'] + standard_deviations*df['std'] # Calculate Upper Bollinger Band
-        df['BOLD'] = df['MA-TP'] - standard_deviations*df['std'] # Calculate Lower Bollinger Band
+        # df['std'] = df['TP'].rolling(training_period).std() # Calculate Standard Deviation
+        # df['MA-TP'] = df['TP'].rolling(training_period).mean() # Calculate Moving Average of Typical Price
+        # df['BOLU'] = df['MA-TP'] + standard_deviations*df['std'] # Calculate Upper Bollinger Band
+        # df['BOLD'] = df['MA-TP'] - standard_deviations*df['std'] # Calculate Lower Bollinger Band
         
 
-        # RSI https://www.roelpeters.be/many-ways-to-calculate-the-rsi-in-python-pandas/
-        close_delta = df['close'].diff()
-        up = close_delta.clip(lower=0)
-        down = -1 * close_delta.clip(upper=0)
+        # # RSI https://www.roelpeters.be/many-ways-to-calculate-the-rsi-in-python-pandas/
+        # close_delta = df['close'].diff()
+        # up = close_delta.clip(lower=0)
+        # down = -1 * close_delta.clip(upper=0)
 
-        # Exponentail 
-        ma_up = up.ewm(com = training_period - 1, adjust=True, min_periods = training_period).mean()
-        ma_down = down.ewm(com = training_period - 1, adjust=True, min_periods = training_period).mean()
-        rsi = ma_up / ma_down
-        rsi = 100 - (100/(1 + rsi))
-        df["EMA_RSI"] = rsi
+        # # Exponential 
+        # ma_up = up.ewm(com = training_period - 1, adjust=True, min_periods = training_period).mean()
+        # ma_down = down.ewm(com = training_period - 1, adjust=True, min_periods = training_period).mean()
+        # rsi = ma_up / ma_down
+        # rsi = 100 - (100/(1 + rsi))
+        # df["EMA_RSI"] = rsi
 
-        # SMA
-        ma_up = up.rolling(window = training_period).mean()
-        ma_down = down.rolling(window = training_period).mean()
+        # # SMA
+        # ma_up = up.rolling(window = training_period).mean()
+        # ma_down = down.rolling(window = training_period).mean()
 
-        rsi = ma_up / ma_down
-        rsi = 100 - (100/(1 + rsi))
-        df["SMA_RSI"] = rsi
+        # rsi = ma_up / ma_down
+        # rsi = 100 - (100/(1 + rsi))
+        # df["SMA_RSI"] = rsi
 
-     
-        print(df.head(50))
-
+        df['SMA_250'] = df['TP'].rolling(250).mean() # Calculate Moving Average of Typical Price
+    
         df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
         list_of_stocks_processed.append(stock + "_Processed")
     return list_of_stocks_processed
 
 if __name__ == "__main__":
     # list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
-    list_of_stocks = ["TSLA_2020-03-09_2022-01-28_15min", "AAPL_2020-03-24_2022-02-12_15min"] # List of stock data csv's to be tested, located in "data/" folder 
+    list_of_stocks = ["AAPL_2020-04-18_2022-03-09_60min"]
+    # list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min", "AAPL_2020-03-24_2022-02-12_1min"] # List of stock data csv's to be tested, located in "data/" folder 
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
     results = tester.test_array(list_of_stocks_proccessed, logic, chart=True) # Run backtest on list of stocks using the logic function
 
