@@ -81,7 +81,6 @@ class backtest():
         pc2 = help_funcs.percent_change(self.account.initial_capital, self.account.total_value(final_price))
         print("Strategy     : {0}%".format(round(pc2*100, 2)))
         print("Net Profit   : {0}".format(round(help_funcs.profit(self.account.initial_capital, pc2), 2)))
-
         longs  = len([t for t in self.account.opened_trades if t.type_ == 'long'])
         sells  = len([t for t in self.account.closed_trades if t.type_ == 'long'])
         shorts = len([t for t in self.account.opened_trades if t.type_ == 'short'])

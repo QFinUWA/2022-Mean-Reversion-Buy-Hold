@@ -12,7 +12,8 @@ def backtest_stock(results, stock, logic, chart):
     lock = mp.Lock() # Lock used to prevent errors with multiprocessing
     df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0]) # Read the csv file into a dataframe to be tested
     backtest = engine.backtest(df) # Create a backtest object with the data from the csv
-    backtest.start(1000, logic) # Start the backtest with the provided logic function
+    backtest.start(5000, logic) # Start the backtest with the provided logic function
+    df.to_csv("data/" + stock + ".csv", index=False) # Save the backtested dataframe to a csv file
     lock.acquire()
     data = backtest.results() # Get the results of the backtest
     data.extend([stock]) # Add the stock name to the results for easy comparison
@@ -34,6 +35,7 @@ def test_array(arr, logic, chart):
         p = mp.Process(target=backtest_stock, args=(results, stock, logic, chart)) # Create a process to backtest each stock
         processes.append(p) # Add the process to the list of processes
         p.start() # Start the process
+
     for process in processes: 
         process.join() # Wait for the process to finish
         processes.remove(process) # Remove the process from the list of processes
