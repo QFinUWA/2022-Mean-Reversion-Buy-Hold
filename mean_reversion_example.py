@@ -1,6 +1,5 @@
 from numpy import diff
 import pandas as pd
-import time
 import multiprocessing as mp
 import matplotlib.pyplot as plt
 
@@ -26,17 +25,20 @@ def logic(account, lookback): # Logic function to be used for each time interval
     today = len(lookback)-1
     if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
 
-        if(lookback['close'][today] < lookback['BOLD'][today]): # If current price is below lower Bollinger Band, enter a long position
-            for position in account.positions: # Close all current positions
-                account.close_position(position, 1, lookback['close'][today])
+        if(lookback['RSI'][today] < 30): # If current price is below lower Bollinger Band, enter a long position
+            # for position in account.positions: # Close all current positions
+            #     account.close_position(position, 1, lookback['close'][today])
+
             if(account.buying_power > 0):
                 account.enter_position('long', account.buying_power, lookback['close'][today]) # Enter a long position
-
-        if(lookback['close'][today] > lookback['BOLU'][today]): # If today's price is above the upper Bollinger Band, enter a short position
+            lookback["buys"][today] = lookback['close'][today]
+            
+        if(lookback['RSI'][today] > 70): # If today's price is above the upper Bollinger Band, enter a short position
             for position in account.positions: # Close all current positions
                 account.close_position(position, 1, lookback['close'][today])
-            if(account.buying_power > 0):
-                account.enter_position('short', account.buying_power, lookback['close'][today]) # Enter a short position
+            lookback["sells"][today] = lookback['close'][today]
+            # if(account.buying_power > 0):
+            #     account.enter_position('short', account.buying_power, lookback['close'][today]) # Enter a short position
 
 '''
 preprocess_data() function:
@@ -58,9 +60,6 @@ def preprocess_data(list_of_stocks):
         df['MA-TP'] = df['TP'].rolling(training_period).mean() # Calculate Moving Average of Typical Price
         df['BOLU'] = df['MA-TP'] + standard_deviations*df['std'] # Calculate Upper Bollinger Band
         df['BOLD'] = df['MA-TP'] - standard_deviations*df['std'] # Calculate Lower Bollinger Band
-        df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
-        list_of_stocks_processed.append(stock + "_Processed")
-        
         difference = (df['close'].diff(1).dropna())
         
         positive_change = 0 * difference
@@ -69,39 +68,35 @@ def preprocess_data(list_of_stocks):
         positive_change[difference > 0] = difference[difference > 0]
         negative_change[difference < 0] = difference[difference < 0]
         
-        positive_change_exponential = positive_change.ewm(com=20, min_periods=training_period).mean()
-        negative_change_exponential = negative_change.ewm(com=20, min_periods=training_period).mean()
+        positive_change_exponential = positive_change.ewm(com=14, min_periods=training_period).mean()
+        negative_change_exponential = negative_change.ewm(com=14, min_periods=training_period).mean()
         
         rs = abs(positive_change_exponential / negative_change_exponential)
         
         rsi = 100 - 100/(1 + rs)
-        print("this is rsi")
-        print(rsi.head())
         df['RSI'] = rsi
         
-        plt.figure(figsize=(15,5))
-        plt.plot(df['date'], df['close'])
-        plt.title('Price chart ')
-        plt.show()
-
-
-        # plot correspondingRSI values and significant levels
-        plt.figure(figsize=(15,5))
-        plt.title('RSI chart')
-        plt.plot(df['date'], df['RSI'])
-
-        plt.axhline(0, linestyle='--', alpha=0.1)
-        plt.axhline(20, linestyle='--', alpha=0.5)
-        plt.axhline(30, linestyle='--')
-
-        plt.axhline(70, linestyle='--')
-        plt.axhline(80, linestyle='--', alpha=0.5)
-        plt.axhline(100, linestyle='--', alpha=0.1)
-        plt.show()
+        df['buys'] = "" # Create a column to store the number of buys
+        df['sells'] = "" # Create a column to store the number of sells
         
+        df['SMA_250'] = df['TP'].rolling(250).mean() # Calculate Moving Average of Typical Price
+        df["SMA_25"] = df['TP'].ewm(25).mean() # Calculate Moving Average of Typical Price
+        
+        list_of_stocks_processed.append(stock + "_Processed")
+        df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
         
         
     return list_of_stocks_processed
+
+def plot_stocks(df):
+    df = pd.read_csv("data/" + stock +'.csv', parse_dates=[0])
+    plt.title('Price chart ')
+    # plt.plot(df['date'], df['SMA_250'])
+    # plt.plot(df['date'], df['SMA_25'])
+    plt.scatter(df['date'], df['buys'],c="red")
+    plt.scatter(df["date"], df["sells"],c="purple")
+    plt.plot(df['date'], df['close'])
+    plt.show()
 
 if __name__ == "__main__":
     # list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
@@ -113,3 +108,5 @@ if __name__ == "__main__":
     print("standard deviations " + str(standard_deviations))
     df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
+    for stock in list_of_stocks_proccessed:
+        plot_stocks(stock)
