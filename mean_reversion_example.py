@@ -29,12 +29,12 @@ def logic(account, lookback): # Logic function to be used for each time interval
     if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
         
         if(account.buying_power < 100):
-            if(lookback["+DM"][today]>lookback["-DM"][today] and lookback["SMA_RSI"][today] >= 75):
+            if(lookback["SMA_RSI"][today] >= 75 and lookback["ADX14"][today] > 50):
                 for position in account.positions: # Close all current positions
                     account.close_position(position, 1, lookback['close'][today])
                 lookback["sells"][today] = lookback['close'][today]
 
-        elif(lookback["SMA_RSI"][today] <= 25):
+        elif(lookback["SMA_RSI"][today] <= 25 and lookback["ADX14"][today] > 50):
             if(account.buying_power > 100):
                 account.enter_position('long', account.buying_power, lookback['close'][today]) # Enter a long position 
                 lookback["buys"][today] = lookback['close'][today]
@@ -83,10 +83,13 @@ def preprocess_data(list_of_stocks):
         # Directional Movement Index
         # https://python.plainenglish.io/trading-using-python-average-directional-index-adx-aeab999cffe7
         interval = 14
+
         df['-DM'] = df['low'].shift(1) - df['low']
         df['+DM'] = df['high'] - df['high'].shift(1)
         df['+DM'] = np.where((df['+DM'] > df['-DM']) & (df['+DM']>0), df['+DM'], 0.0)
         df['-DM'] = np.where((df['-DM'] > df['+DM']) & (df['-DM']>0), df['-DM'], 0.0)
+        
+        
         df['TR_TMP1'] = df['high'] - df['low']
         df['TR_TMP2'] = np.abs(df['high'] - df['close'].shift(1))
         df['TR_TMP3'] = np.abs(df['low'] - df['close'].shift(1))
@@ -120,18 +123,18 @@ def preprocess_data(list_of_stocks):
 
 
 
-def plot_stocks(df):
+def plot_stocks(stock):
     df = pd.read_csv("data/" + stock +'.csv', parse_dates=[0])
     plt.plot(df['date'], df['close'])
     plt.title('Price chart ')
-    plt.plot(df['date'], df['SMA_250'])
-    plt.plot(df['date'], df['SMA_25'])
+    plt.plot(df['date'], df['+DM'])
+    plt.plot(df['date'], df['-DM'])
     plt.scatter(df['date'], df['buys'],c="red")
     plt.scatter(df["date"], df["sells"],c="purple")
     plt.show()
 
 if __name__ == "__main__":
-    list_of_stocks = ["AAPL_2020-03-24_2022-02-12_1min"] 
+    list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
     # list_of_stocks = ["AAPL_2020-04-18_2022-03-09_60min"]
     # list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min", "AAPL_2020-03-24_2022-02-12_1min"] # List of stock data csv's to be tested, located in "data/" folder 
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
@@ -140,6 +143,6 @@ if __name__ == "__main__":
     print("standard deviations " + str(standard_deviations))
     df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
-    # for stock in list_of_stocks_proccessed:
-    #     plot_stocks(stock)
+    for stock in list_of_stocks_proccessed:
+        plot_stocks(stock)
         
