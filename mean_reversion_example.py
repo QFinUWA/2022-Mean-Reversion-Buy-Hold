@@ -5,14 +5,15 @@ import multiprocessing as mp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
+import time
 # local imports
 from backtester import engine, tester
 from backtester import API_Interface as api
 from backtester.account import LongPosition
 
 
-SMA_WINDOW= np.arange(0,50,5)
-RSI_WINDOW = np.arange(0,50,5)
+SMA_WINDOW= np.arange(75,155,5)
+RSI_WINDOW = np.arange(75,155,5)
 training_period = max([max(SMA_WINDOW),max(RSI_WINDOW)]) # How far the rolling average takes into calculation
 
 '''
@@ -34,20 +35,19 @@ def logic(account, lookback): # Logic function to be used for each time interval
              #we only want to evaluate potential longs if we have capital to do so
             if(lookback['RSI'][today] > 20 and account.buying_power > 0): #if the RSI is above 20 and as such the stock is not 'oversold' we can look to short
                 account.enter_position('short', (account.buying_power * 0.5), lookback['close'][today]) #enter a short position
-                lookback['shorts'][today] = lookback['close'][today] #set the short row for this price to the current position and price for graphing
             elif(lookback['RSI'][today] <= 20): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
                 for position in account.positions: # Close all current positions
                         account.close_position(position, 1, lookback['close'][today])
-                lookback['covers'][today] = lookback['close'][today] #set the covers row for this price to the current position and price for graphing
+
                          
         if(lookback['close'][today] > lookback['SMA'][today]): # means that the current price must be above the 250 SMA and as such we look for long positions
             if(lookback['RSI'][today] <= 80 and account.buying_power > 0): # If the RSI is below 80 the stock is not yet 'overbought' and theres potentially more bullish movement we can take advantage on with a long position
                 account.enter_position('long', (account.buying_power * 0.5), lookback['close'][today])
-                lookback['buys'][today] = lookback['close'][today] #set the long row for this price to the current position and price for graphing
+        
             elif(lookback['RSI'][today] >= 80):
                 for position in account.positions: # Close all current positions
                         account.close_position(position, 1, lookback['close'][today])
-                lookback['sells'][today] = lookback['close'][today] #set the covers row for this price to the current position and price for graphing
+                
         
         
             
@@ -86,10 +86,6 @@ def preprocess_data(list_of_stocks):
                     
                     rsi = 100 - 100/(1 + rs)
                     df['RSI'] = rsi
-                    df['buys'] = "" # Create a column to store the number of buys
-                    df['sells'] = "" # Create a column to store the number of sells
-                    df['shorts'] = "" # Create a column to store the number of shorts
-                    df['covers'] = "" # Create a column to store the number of covers
                     df['SMA'] = df['TP'].rolling(sma_window).mean()
 
                     df.to_csv(f'data/{stock}_{rsi_window}-{sma_window}.csv', index=False) # Save to CSV
@@ -97,20 +93,13 @@ def preprocess_data(list_of_stocks):
         
     return list_of_stocks_processed
 
-def plot_stocks(df):
-    df = pd.read_csv("data/" + stock +'.csv', parse_dates=[0])
-    plt.title('Price chart ')
-    plt.plot(df['date'], df['SMA_14'])
-    plt.plot(df['date'], df['SMA_9'])
-    # plt.plot(df['date'], df['SMA_25'])
-    plt.scatter(df['date'], df['buys'],c="red")
-    plt.scatter(df["date"], df['sells'],c="purple")
-    plt.scatter(df['date'], df['shorts'],c="yellow")
-    plt.scatter(df["date"], df['covers'],c="black")
-    plt.plot(df['date'], df['close'])
-    plt.show()
 
 if __name__ == "__main__":
+    
+    # print(len(np.arange(0,80,5)))
+    # print(len(np.arange(75,155,5)))
+
+    starttime = time.time()
     list_of_stocks = [
     "AAPL",
     "MSFT",
@@ -133,5 +122,4 @@ if __name__ == "__main__":
 
     df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
-    # for stock in list_of_stocks_proccessed:
-    #     plot_stocks(stock)
+    print(f"timetaken: {time.time()-starttime} seconds")
