@@ -35,9 +35,25 @@ get_intraday_extended() function:
             data/SYMBOL_STARTDATE_ENDDATE_INTERVAL.csv: the csv file containing the intraday_extended data
 
 """
+common_stocks = [
+"AAPL",
+"MSFT",
+"AMZN",
+"GOOG",
+"NVDA",
+"UNH",
+"JNJ",
+"FB",
+"JPM",
+"DIS",
+"V",
+"KO",
+"PEP",
+"LLY",
+"TSLA"]
 
-
-api.get_intraday_extended('AAPL', 'all', '', '1min', True)
+for stock in common_stocks:
+        api.get_intraday_extended(stock, 'all', '', '1min', True)
 # api.get_intraday_extended('GOOG', 'all', '', '1min', True)
 # api.get_intraday_extended('IBM', '01-01-2008', '01-03-2022', '1min', True)
 # api.get_intraday_extended('TSLA', 'year1month2', 'year1month1', '60min', True, False)
