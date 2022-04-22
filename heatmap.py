@@ -3,7 +3,7 @@ import seaborn as sns; sns.set_theme()
 import pandas as pd
 import matplotlib.pyplot as plt
 
-df =pd.read_csv("results/Test_Results.csv")
+df =pd.read_csv("results/AAPL.csv")
 df[["Stock","RSISMA"]] = df['Stock'].str.split('_', 1, expand=True)
 
 df = df[["RSISMA",'Buy and Hold','Strategy']]
