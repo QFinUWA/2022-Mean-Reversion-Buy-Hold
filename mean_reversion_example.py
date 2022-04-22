@@ -12,8 +12,8 @@ from backtester import API_Interface as api
 from backtester.account import LongPosition
 
 
-SMA_WINDOW = np.arange(75,155,5)
-RSI_WINDOW = np.arange(75,155,5)
+SMA_WINDOW = np.arange(0,305,5)
+RSI_WINDOW = np.arange(155,305,5)
 training_period = max([max(SMA_WINDOW),max(RSI_WINDOW)]) # How far the rolling average takes into calculation
 
 '''
@@ -117,9 +117,10 @@ if __name__ == "__main__":
     "TSLA"]
     # List of stock data csv's to be tested, located in "data/" folder 
     for stock in list_of_stocks:
-        if not os.path.exists(f"results/{stock}.csv"):
+        name = f'results/{stock}{min(SMA_WINDOW)}-{max(SMA_WINDOW)}.csv'
+        if not os.path.exists(name):
             list_of_stocks_proccessed = preprocess_data(stock) # Preprocess the data
             results = tester.test_array(list_of_stocks_proccessed, logic, chart=False) # Run backtest on list of stocks using the logic function
             df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
-            df.to_csv(f"results/{stock}.csv", index=False) # Save results to csv
+            df.to_csv(name, index=False) # Save results to csv
     print(f"timetaken: {time.time()-starttime} seconds")
