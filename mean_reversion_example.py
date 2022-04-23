@@ -36,7 +36,7 @@ def logic(account, lookback): # Logic function to be used for each time interval
         if(price < lookback['SMA'][today] and price > lookback['SMA'][yesterday]): #if the current price is below the 250 SMA we look for short positions
              #we only want to evaluate potential longs if we have capital to do so
             if(lookback['RSI'][today] > 20 and account.buying_power > 0): #if the RSI is above 20 and as such the stock is not 'oversold' we can look to short
-                account.enter_position('short', (account.buying_power * 0.5), lookback['close'][today]) #enter a short position
+                account.enter_position('short', (account.buying_power), lookback['close'][today]) #enter a short position
             elif(lookback['RSI'][today] <= 20): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
                 for position in account.positions: # Close all current positions
                         account.close_position(position, 1, lookback['close'][today])
@@ -44,7 +44,7 @@ def logic(account, lookback): # Logic function to be used for each time interval
                          
         if(price > lookback['SMA'][today] and price < lookback['SMA'][yesterday]): # means that the current price must be above the 250 SMA and as such we look for long positions
             if(lookback['RSI'][today] <= 80 and account.buying_power > 0): # If the RSI is below 80 the stock is not yet 'overbought' and theres potentially more bullish movement we can take advantage on with a long position
-                account.enter_position('long', (account.buying_power * 0.5), lookback['close'][today])
+                account.enter_position('long', (account.buying_power), lookback['close'][today])
         
             elif(lookback['RSI'][today] >= 80):
                 for position in account.positions: # Close all current positions
