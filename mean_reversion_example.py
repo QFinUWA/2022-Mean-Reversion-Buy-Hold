@@ -53,8 +53,36 @@ def logic(account, lookback): # Logic function to be used for each time interval
                     account.close_position(position, 1, lookback['close'][today])
                 
         
-        
+
+def create_csvs(stock,rsi_window,sma_window):
+    try:
+        if not os.path.exists(f'data/{stock}_{rsi_window}-{sma_window}.csv'): 
+            df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
+            df = df.iloc[::60, :]
             
+            df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
+            difference = (df['close'].diff(1).dropna())
+            
+            positive_change = 0 * difference
+            negative_change = 0 * difference
+            
+            positive_change[difference > 0] = difference[difference > 0]
+            negative_change[difference < 0] = difference[difference < 0]
+            
+            positive_change_exponential = positive_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
+            negative_change_exponential = negative_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
+            
+            rs = abs(positive_change_exponential / negative_change_exponential)
+            
+            rsi = 100 - 100/(1 + rs)
+            df['RSI'] = rsi
+            df['SMA'] = df['TP'].rolling(sma_window).mean()
+
+            df.to_csv(f'data/{stock}_{rsi_window}-{sma_window}.csv', index=False) # Save to CSV
+    except KeyboardInterrupt:
+        print("done")   
+        
+         
 '''
 preprocess_data() function:
     Context: Called once at the beginning of the backtest. TOTALLY OPTIONAL. 
@@ -65,34 +93,15 @@ preprocess_data() function:
     Output: list_of_stocks_processed - a list of processed stock data csvs
 '''
 
-def preprocess_data(list_of_stocks):
+def preprocess_data(stock):
     list_of_stocks_processed = []
+    args = []
     for rsi_window in RSI_WINDOW:
         for sma_window in SMA_WINDOW:
-            if not os.path.exists(f'data/{stock}_{rsi_window}-{sma_window}.csv'): 
-                df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
-                df = df.iloc[::60, :]
-                
-                df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
-                difference = (df['close'].diff(1).dropna())
-                
-                positive_change = 0 * difference
-                negative_change = 0 * difference
-                
-                positive_change[difference > 0] = difference[difference > 0]
-                negative_change[difference < 0] = difference[difference < 0]
-                
-                positive_change_exponential = positive_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
-                negative_change_exponential = negative_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
-                
-                rs = abs(positive_change_exponential / negative_change_exponential)
-                
-                rsi = 100 - 100/(1 + rs)
-                df['RSI'] = rsi
-                df['SMA'] = df['TP'].rolling(sma_window).mean()
-
-                df.to_csv(f'data/{stock}_{rsi_window}-{sma_window}.csv', index=False) # Save to CSV
+            args.append((stock,rsi_window,sma_window))
             list_of_stocks_processed.append(f'{stock}_{rsi_window}-{sma_window}')
+    with mp.Pool(15) as pool:
+        pool.starmap(create_csvs,args)
         
     return list_of_stocks_processed
 
