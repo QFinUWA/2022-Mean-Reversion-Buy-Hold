@@ -11,13 +11,9 @@ from backtester import engine, tester
 from backtester import API_Interface as api
 from backtester.account import LongPosition
 
-# Kanes
-# SMA_WINDOW = np.arange(0,75,5)
-# RSI_WINDOW = np.arange(0,155,5)
 
-# Harrys
-SMA_WINDOW = np.arange(75,155,5)
-RSI_WINDOW = np.arange(0,155,5)
+SMA_WINDOW = np.arange(0,305,5)
+RSI_WINDOW = np.arange(155,305,5)
 training_period = max([max(SMA_WINDOW),max(RSI_WINDOW)]) # How far the rolling average takes into calculation
 
 '''
@@ -33,56 +29,30 @@ logic() function:
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
     
     today = len(lookback)-1
+    yesterday =len(lookback)-2
+    price = lookback['close'][today]
     if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
         
-        if(lookback['close'][today] < lookback['SMA'][today]): #if the current price is below the 250 SMA we look for short positions
+        if(price < lookback['SMA'][today] and price > lookback['SMA'][yesterday]): #if the current price is below the 250 SMA we look for short positions
              #we only want to evaluate potential longs if we have capital to do so
             if(lookback['RSI'][today] > 20 and account.buying_power > 0): #if the RSI is above 20 and as such the stock is not 'oversold' we can look to short
-                account.enter_position('short', 1, lookback['close'][today]) #enter a short position
+                account.enter_position('short', (account.buying_power * 0.5), lookback['close'][today]) #enter a short position
             elif(lookback['RSI'][today] <= 20): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
                 for position in account.positions: # Close all current positions
-                    account.close_position(position, 1, lookback['close'][today])
+                        account.close_position(position, 1, lookback['close'][today])
 
                          
-        if(lookback['close'][today] > lookback['SMA'][today]): # means that the current price must be above the 250 SMA and as such we look for long positions
+        if(price > lookback['SMA'][today] and price < lookback['SMA'][yesterday]): # means that the current price must be above the 250 SMA and as such we look for long positions
             if(lookback['RSI'][today] <= 80 and account.buying_power > 0): # If the RSI is below 80 the stock is not yet 'overbought' and theres potentially more bullish movement we can take advantage on with a long position
-                account.enter_position('long', 1, lookback['close'][today])
+                account.enter_position('long', (account.buying_power * 0.5), lookback['close'][today])
         
             elif(lookback['RSI'][today] >= 80):
                 for position in account.positions: # Close all current positions
-                    account.close_position(position, 1, lookback['close'][today])
+                        account.close_position(position, 1, lookback['close'][today])
                 
         
-
-def create_csvs(stock,rsi_window,sma_window):
-    try:
-        if not os.path.exists(f'data/{stock}_{rsi_window}-{sma_window}.csv'): 
-            df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
-            df = df.iloc[::60, :]
-            
-            df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
-            difference = (df['close'].diff(1).dropna())
-            
-            positive_change = 0 * difference
-            negative_change = 0 * difference
-            
-            positive_change[difference > 0] = difference[difference > 0]
-            negative_change[difference < 0] = difference[difference < 0]
-            
-            positive_change_exponential = positive_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
-            negative_change_exponential = negative_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
-            
-            rs = abs(positive_change_exponential / negative_change_exponential)
-            
-            rsi = 100 - 100/(1 + rs)
-            df['RSI'] = rsi
-            df['SMA'] = df['TP'].rolling(sma_window).mean()
-
-            df.to_csv(f'data/{stock}_{rsi_window}-{sma_window}.csv', index=False) # Save to CSV
-    except KeyboardInterrupt:
-        print("done")   
         
-         
+            
 '''
 preprocess_data() function:
     Context: Called once at the beginning of the backtest. TOTALLY OPTIONAL. 
@@ -93,15 +63,34 @@ preprocess_data() function:
     Output: list_of_stocks_processed - a list of processed stock data csvs
 '''
 
-def preprocess_data(stock):
+def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
-    args = []
     for rsi_window in RSI_WINDOW:
         for sma_window in SMA_WINDOW:
-            args.append((stock,rsi_window,sma_window))
+            if not os.path.exists(f'data/{stock}_{rsi_window}-{sma_window}.csv'): 
+                df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
+                df = df.iloc[::60, :]
+                
+                df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
+                difference = (df['close'].diff(1).dropna())
+                
+                positive_change = 0 * difference
+                negative_change = 0 * difference
+                
+                positive_change[difference > 0] = difference[difference > 0]
+                negative_change[difference < 0] = difference[difference < 0]
+                
+                positive_change_exponential = positive_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
+                negative_change_exponential = negative_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
+                
+                rs = abs(positive_change_exponential / negative_change_exponential)
+                
+                rsi = 100 - 100/(1 + rs)
+                df['RSI'] = rsi
+                df['SMA'] = df['TP'].rolling(sma_window).mean()
+
+                df.to_csv(f'data/{stock}_{rsi_window}-{sma_window}.csv', index=False) # Save to CSV
             list_of_stocks_processed.append(f'{stock}_{rsi_window}-{sma_window}')
-    with mp.Pool(15) as pool:
-        pool.starmap(create_csvs,args)
         
     return list_of_stocks_processed
 
