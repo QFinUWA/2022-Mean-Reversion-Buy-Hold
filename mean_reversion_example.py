@@ -12,8 +12,8 @@ from backtester import API_Interface as api
 from backtester.account import LongPosition
 
 
-SMAFAST_WINDOW = np.arange(0,305,5)
-SMASLOW_WINDOW = np.arange(0,505,5)
+SMAFAST_WINDOW = np.arange(0,30,1)
+SMASLOW_WINDOW = np.arange(0,50,1)
 training_period = max([max(SMAFAST_WINDOW),max(SMASLOW_WINDOW)]) # How far the rolling average takes into calculation
 
 '''
@@ -30,21 +30,14 @@ def logic(account, lookback): # Logic function to be used for each time interval
     
     today = len(lookback)-1
     yesterday =len(lookback)-2
-    price = lookback['close'][today]
-    if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
+    price = lookback['close'][today] # If the lookback is long enough to calculate the Bollinger Bands
         
-        if(lookback['SMASLOW'][today] < lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] > lookback['SMAFAST'][yesterday]): #If there is a crossover of fast from below the slow to above the slow
-            if(account.buying_power > 2):
-                account.enter_position('short', (account.buying_power), price) #enter a short position
-        else: #if account buying power is not 0 we assume we are currently in a short and the sma has now crossed over to bullish and so we close our short
-            for position in account.positions: # Close all current positions
-                account.close_position(position, 1, lookback['close'][today])  
-        if(lookback['SMASLOW'][today] > lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] < lookback['SMAFAST'][yesterday]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
-            if(account.buying_power > 2):
-                account.enter_position('long', (account.buying_power), price)
-            else:
-                for position in account.positions: # Close all current positions
-                    account.close_position(position, 1, lookback['close'][today])
+    if(lookback['SMASLOW'][today] < lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] > lookback['SMAFAST'][yesterday]): #If there is a crossover of fast from below the slow to above the slow
+        for position in account.positions: # Close all current positions
+            account.close_position(position, 1, lookback['close'][today])  
+    if(lookback['SMASLOW'][today] > lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] < lookback['SMAFAST'][yesterday]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
+        if(account.buying_power > 2):
+            account.enter_position('long', (account.buying_power), price)
        
                 
         
@@ -82,10 +75,15 @@ def create_csvs(stock,rsi_window,sma_window):
             
             # rsi = 100 - 100/(1 + rs)
             # df['RSI'] = rsi
-            df['SMAFAST'] = df['TP'].rolling(sma_window).mean()
-            df['SMASLOW'] = df['TP'].rolling(rsi_window).mean()
+            df['SMAFAST'] = df['close'].rolling((sma_window*24)*2).mean()
+            df['SMASLOW'] = df['close'].rolling((rsi_window*24)*2).mean()
+            df['buysignal'] = np.where((df['SMAFAST'] > df['SMASLOW']), 1.0, 0.0)
+            df['sellsignal'] = np.where((df['SMAFAST'] < df['SMASLOW']), 1.0, 0.0)
 
+            df['position'] = df['buysignal'].diff()
+            
             df.to_csv(f'data/{stock}_{rsi_window}-{sma_window}.csv', index=False) # Save to CSV
+            
     except KeyboardInterrupt:
         print("done")   
         
@@ -118,7 +116,12 @@ if __name__ == "__main__":
 
     starttime = time.time()
     list_of_stocks = [
+    "AMZN",
     "AAPL",
+    "JNJ",
+    "JPM",
+    "UNH",
+    "V",
     "TSLA"]
     # List of stock data csv's to be tested, located in "data/" folder 
     for stock in list_of_stocks:
