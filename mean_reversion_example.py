@@ -12,9 +12,9 @@ from backtester import API_Interface as api
 from backtester.account import LongPosition
 
 
-SMA_WINDOW = np.arange(0,305,5)
-RSI_WINDOW = np.arange(0,505,5)
-training_period = max([max(SMA_WINDOW),max(RSI_WINDOW)]) # How far the rolling average takes into calculation
+SMAFAST_WINDOW = np.arange(0,305,5)
+SMASLOW_WINDOW = np.arange(0,505,5)
+training_period = max([max(SMAFAST_WINDOW),max(SMASLOW_WINDOW)]) # How far the rolling average takes into calculation
 
 '''
 logic() function:
@@ -33,24 +33,19 @@ def logic(account, lookback): # Logic function to be used for each time interval
     price = lookback['close'][today]
     if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
         
-        if(price < lookback['SMA'][today]): #if the current price is below the 250 SMA we look for short positions
-             #we only want to evaluate potential longs if we have capital to do so
-            if(lookback['RSI'][today] > 20 and account.buying_power > 0): #if the RSI is above 20 and as such the stock is not 'oversold' we can look to short
-                account.enter_position('short', (account.buying_power), lookback['close'][today]) #enter a short position
-        if(lookback['RSI'][today] <= 20): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
+        if(lookback['SMASLOW'][today] < lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] > lookback['SMAFAST'][yesterday]): #If there is a crossover of fast from below the slow to above the slow
+            if(account.buying_power > 2):
+                account.enter_position('short', (account.buying_power), price) #enter a short position
+        else: #if account buying power is not 0 we assume we are currently in a short and the sma has now crossed over to bullish and so we close our short
             for position in account.positions: # Close all current positions
-                if(position.type_ == 'short'):
+                account.close_position(position, 1, lookback['close'][today])  
+        if(lookback['SMASLOW'][today] > lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] < lookback['SMAFAST'][yesterday]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
+            if(account.buying_power > 2):
+                account.enter_position('long', (account.buying_power), price)
+            else:
+                for position in account.positions: # Close all current positions
                     account.close_position(position, 1, lookback['close'][today])
-
-                         
-        if(price > lookback['SMA'][today]): # means that the current price must be above the 250 SMA and as such we look for long positions
-            if(lookback['RSI'][today] <= 80 and account.buying_power > 0): # If the RSI is below 80 the stock is not yet 'overbought' and theres potentially more bullish movement we can take advantage on with a long position
-                account.enter_position('long', (account.buying_power), lookback['close'][today])
-        
-        if(lookback['RSI'][today] <= 20 and price > lookback['SMA'][today]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
-            for position in account.positions: # Close all current positions
-                if(position.type_ == 'long'):
-                    account.close_position(position, 1, lookback['close'][today])
+       
                 
         
         
@@ -72,22 +67,23 @@ def create_csvs(stock,rsi_window,sma_window):
             df = df.iloc[::60, :]
             
             df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
-            difference = (df['close'].diff(1).dropna())
+            # difference = (df['close'].diff(1).dropna())
             
-            positive_change = 0 * difference
-            negative_change = 0 * difference
+            # positive_change = 0 * difference
+            # negative_change = 0 * difference
             
-            positive_change[difference > 0] = difference[difference > 0]
-            negative_change[difference < 0] = difference[difference < 0]
+            # positive_change[difference > 0] = difference[difference > 0]
+            # negative_change[difference < 0] = difference[difference < 0]
             
-            positive_change_exponential = positive_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
-            negative_change_exponential = negative_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
+            # positive_change_exponential = positive_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
+            # negative_change_exponential = negative_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
             
-            rs = abs(positive_change_exponential / negative_change_exponential)
+            # rs = abs(positive_change_exponential / negative_change_exponential)
             
-            rsi = 100 - 100/(1 + rs)
-            df['RSI'] = rsi
-            df['SMA'] = df['TP'].rolling(sma_window).mean()
+            # rsi = 100 - 100/(1 + rs)
+            # df['RSI'] = rsi
+            df['SMAFAST'] = df['TP'].rolling(sma_window).mean()
+            df['SMASLOW'] = df['TP'].rolling(rsi_window).mean()
 
             df.to_csv(f'data/{stock}_{rsi_window}-{sma_window}.csv', index=False) # Save to CSV
     except KeyboardInterrupt:
@@ -105,8 +101,8 @@ preprocess_data() function:
 def preprocess_data(stock):
     list_of_stocks_processed = []
     args = []
-    for rsi_window in RSI_WINDOW:
-        for sma_window in SMA_WINDOW:
+    for rsi_window in SMASLOW_WINDOW:
+        for sma_window in SMAFAST_WINDOW:
             args.append((stock,rsi_window,sma_window))
             list_of_stocks_processed.append(f'{stock}_{rsi_window}-{sma_window}')
     with mp.Pool(15) as pool:
@@ -126,7 +122,7 @@ if __name__ == "__main__":
     "TSLA"]
     # List of stock data csv's to be tested, located in "data/" folder 
     for stock in list_of_stocks:
-        name = f'results/{stock}{min(SMA_WINDOW)}-{max(SMA_WINDOW)}.csv'
+        name = f'results/{stock}{min(SMAFAST_WINDOW)}-{max(SMAFAST_WINDOW)}.csv'
         if not os.path.exists(name):
             list_of_stocks_proccessed = preprocess_data(stock) # Preprocess the data
             results = tester.test_array(list_of_stocks_proccessed, logic, chart=False) # Run backtest on list of stocks using the logic function
