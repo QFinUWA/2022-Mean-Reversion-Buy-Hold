@@ -27,12 +27,11 @@ def logic(account, lookback): # Logic function to be used for each time interval
     today = len(lookback)-1
     yesterday =len(lookback)-2
     price = lookback['close'][today]
-    if(lookback['SMASLOW'][today] < lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] > lookback['SMAFAST'][yesterday]): #If there is a crossover of fast from below the slow to above the slow
+    if(lookback['position'][today] == 1 and account.buying_power > 0):
+        account.enter_position('long', account.buying_power, price)
+    elif(lookback['position'][today] == -1):
         for position in account.positions: # Close all current positions
-            account.close_position(position, 1, lookback['close'][today])  
-    if(lookback['SMASLOW'][today] > lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] < lookback['SMAFAST'][yesterday]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
-        if(account.buying_power > 2):
-            account.enter_position('long', (account.buying_power), price)
+            account.close_position(position, 1, lookback['close'][today]) 
 
 '''
 preprocess_data() function:
@@ -52,28 +51,33 @@ def preprocess_data(list_of_stocks):
         df['SMAFAST'] = df['close'].rolling((20*24)).mean() # Calculate Moving Average of Typical Price
         df["SMASLOW"] = df['close'].rolling((50*24)).mean() # Calculate Moving Average of Typical Price
         
-        df['longsignal'] = np.where(df['SMAFAST'] > df['SMASLOW'], 1.0, 0.0)
+        df['EMAFAST'] = df['close'].ewm(span = (20*24), adjust=False).mean()
+        df['EMASLOW'] = df['close'].ewm(span = (250*24), adjust=False).mean()
+        df['longsignal'] = np.where(df['EMAFAST'] > df['EMASLOW'], 1.0, 0.0)
         df['position'] = df['longsignal'].diff()
-        plt.figure(figsize = (20,10))
-        # plot close price, short-term and long-term moving averages 
-        df
-        df['close'].plot(color = 'k', label = 'Close Price')
-        df['SMAFAST'].plot(color = 'b',label = '20-day SMA'); 
-        df['SMASLOW'].plot(color = 'g', label = '50-day SMA');
-        # plot ‘buy' signals
-        plt.plot(df[df['position'] == 1].index, 
-                df['SMAFAST'][df['position'] == 1], 
-                '^', markersize = 15, color = 'g', label = 'buy')
-        # plot ‘sell' signals
-        plt.plot(df[df['position'] == -1].index, 
-                df['SMAFAST'][df['position'] == -1], 
-                'v', markersize = 15, color = 'r', label = 'sell')
-        plt.ylabel('Price in Rupees', fontsize = 15 )
-        plt.xlabel('Date', fontsize = 15 )
-        plt.title('ULTRACEMCO', fontsize = 20)
-        plt.legend()
-        plt.grid()
-        plt.show()
+        
+        
+        # plt.figure(figsize = (20,10))
+        # # plot close price, short-term and long-term moving averages 
+        # df
+        # df['close'].plot(color = 'k', label = 'Close Price')
+        # df['SMAFAST'].plot(color = 'b',label = '20-day SMA'); 
+        # df['SMASLOW'].plot(color = 'g', label = '50-day SMA');
+        
+        # # plot ‘buy' signals
+        # plt.plot(df[df['position'] == 1].index, 
+        #         df['SMAFAST'][df['position'] == 1], 
+        #         '^', markersize = 15, color = 'g', label = 'buy')
+        # # plot ‘sell' signals
+        # plt.plot(df[df['position'] == -1].index, 
+        #         df['SMAFAST'][df['position'] == -1], 
+        #         'v', markersize = 15, color = 'r', label = 'sell')
+        # plt.ylabel('Price in Rupees', fontsize = 15 )
+        # plt.xlabel('Date', fontsize = 15 )
+        # plt.title('ULTRACEMCO', fontsize = 20)
+        # plt.legend()
+        # plt.grid()
+        # plt.show()
         list_of_stocks_processed.append(stock + "_Processed")
         df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
         
