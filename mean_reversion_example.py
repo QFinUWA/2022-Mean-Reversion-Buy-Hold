@@ -1,3 +1,5 @@
+from calendar import c
+from turtle import color
 from numpy import diff
 import pandas as pd
 import multiprocessing as mp
@@ -25,25 +27,14 @@ def logic(account, lookback): # Logic function to be used for each time interval
     today = len(lookback)-1
     yesterday =len(lookback)-2
     price = lookback['close'][today]
+    if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
         
-    if(price < lookback['SMA'][today] and price > lookback['SMA'][yesterday]): #if the current price is below the 250 SMA we look for short positions
-            #we only want to evaluate potential longs if we have capital to do so
-        if(lookback['RSI'][today] > 20 and account.buying_power > 0): #if the RSI is above 20 and as such the stock is not 'oversold' we can look to short
-            account.enter_position('short', (account.buying_power), lookback['close'][today]) #enter a short position
-    if(lookback['RSI'][today] <= 20): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
-        for position in account.positions: # Close all current positions
-            if(position.type_ == 'short'):
-                account.close_position(position, 1, lookback['close'][today])
-
-                        
-    if(price > lookback['SMA'][today] and price < lookback['SMA'][yesterday]): # means that the current price must be above the 250 SMA and as such we look for long positions
-        if(lookback['RSI'][today] <= 80 and account.buying_power > 0): # If the RSI is below 80 the stock is not yet 'overbought' and theres potentially more bullish movement we can take advantage on with a long position
-            account.enter_position('long', (account.buying_power), lookback['close'][today])
-    
-    if(lookback['RSI'][today] <= 20 and price > lookback['SMA'][today]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
-        for position in account.positions: # Close all current positions
-            if(position.type_ == 'long'):
-                account.close_position(position, 1, lookback['close'][today])
+        if(lookback['SMASLOW'][today] < lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] > lookback['SMAFAST'][yesterday]): #If there is a crossover of fast from below the slow to above the slow
+            for position in account.positions: # Close all current positions
+                account.close_position(position, 1, lookback['close'][today])  
+        if(lookback['SMASLOW'][today] > lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] < lookback['SMAFAST'][yesterday]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
+            if(account.buying_power > 2):
+                account.enter_position('long', (account.buying_power), price)
 
 '''
 preprocess_data() function:
@@ -84,8 +75,8 @@ def preprocess_data(list_of_stocks):
         df['buys'] = "" # Create a column to store the number of buys
         df['sells'] = "" # Create a column to store the number of sells
         
-        df['SMA'] = df['TP'].ewm(1).mean() # Calculate Moving Average of Typical Price
-        df["SMA_25"] = df['TP'].ewm(25).mean() # Calculate Moving Average of Typical Price
+        df['SMAFAST'] = df['TP'].rolling((50*26)*4).mean() # Calculate Moving Average of Typical Price
+        df["SMASLOW"] = df['TP'].rolling((250*26)*4).mean() # Calculate Moving Average of Typical Price
         
         list_of_stocks_processed.append(stock + "_Processed")
         df.to_csv("data/" + stock + "_Processed.csv", index=False) # Save to CSV
@@ -96,11 +87,11 @@ def preprocess_data(list_of_stocks):
 def plot_stocks(df):
     df = pd.read_csv("data/" + stock +'.csv', parse_dates=[0])
     plt.title('Price chart ')
-    # plt.plot(df['date'], df['SMA_250'])
-    # plt.plot(df['date'], df['SMA_25'])
+    plt.plot(df['date'], df['SMASLOW'], color='blue')
+    plt.plot(df['date'], df['SMAFAST'], color='green')
     plt.scatter(df['date'], df['buys'],c="red")
     plt.scatter(df["date"], df["sells"],c="purple")
-    plt.plot(df['date'], df['close'])
+    plt.plot(df['date'], df['close'], color='black')
     plt.show()
 
 if __name__ == "__main__":
@@ -113,5 +104,5 @@ if __name__ == "__main__":
     print("standard deviations " + str(standard_deviations))
     df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
-    # for stock in list_of_stocks_proccessed:
-    #     plot_stocks(stock)
+    for stock in list_of_stocks_proccessed:
+        plot_stocks(stock)
