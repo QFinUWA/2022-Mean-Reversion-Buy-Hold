@@ -12,8 +12,8 @@ from backtester import API_Interface as api
 from backtester.account import LongPosition
 
 
-SMAFAST_WINDOW = np.arange(0,30,1)
-SMASLOW_WINDOW = np.arange(0,50,1)
+SMAFAST_WINDOW = np.arange(0,305,5)
+SMASLOW_WINDOW = np.arange(0,505,5)
 training_period = max([max(SMAFAST_WINDOW),max(SMASLOW_WINDOW)]) # How far the rolling average takes into calculation
 
 '''
@@ -29,61 +29,59 @@ logic() function:
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
     
     today = len(lookback)-1
-    yesterday =len(lookback)-2
-    price = lookback['close'][today] # If the lookback is long enough to calculate the Bollinger Bands
-        
-    if(lookback['SMASLOW'][today] < lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] > lookback['SMAFAST'][yesterday]): #If there is a crossover of fast from below the slow to above the slow
+    price = lookback['close'][today]
+    if(lookback['position'][today] == 1 and account.buying_power > 0):
+        account.enter_position('long', account.buying_power, price)
+    elif(lookback['position'][today] == -1):
         for position in account.positions: # Close all current positions
-            account.close_position(position, 1, lookback['close'][today])  
-    if(lookback['SMASLOW'][today] > lookback['SMAFAST'][today] and lookback['SMASLOW'][yesterday] < lookback['SMAFAST'][yesterday]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
-        if(account.buying_power > 2):
-            account.enter_position('long', (account.buying_power), price)
-       
-                
-        
-        
-            
+            account.close_position(position, 1, lookback['close'][today]) 
+
 '''
 preprocess_data() function:
     Context: Called once at the beginning of the backtest. TOTALLY OPTIONAL. 
              Each of these can be calculated at each time interval, however this is likely slower.
-
     Input:  list_of_stocks - a list of stock data csvs to be processed
-
     Output: list_of_stocks_processed - a list of processed stock data csvs
 '''
 
-def create_csvs(stock,rsi_window,sma_window):
+def create_csvs(stock,slow_window,fast_window):
     try:
-        if not os.path.exists(f'data/{stock}_{rsi_window}-{sma_window}.csv'): 
+        if not os.path.exists(f'data/{stock}_{slow_window}-{fast_window}.csv'): 
             df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
-            df = df.iloc[::60, :]
-            
+        
             df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
-            # difference = (df['close'].diff(1).dropna())
-            
-            # positive_change = 0 * difference
-            # negative_change = 0 * difference
-            
-            # positive_change[difference > 0] = difference[difference > 0]
-            # negative_change[difference < 0] = difference[difference < 0]
-            
-            # positive_change_exponential = positive_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
-            # negative_change_exponential = negative_change.ewm(com=rsi_window, min_periods=rsi_window).mean()
-            
-            # rs = abs(positive_change_exponential / negative_change_exponential)
-            
-            # rsi = 100 - 100/(1 + rs)
-            # df['RSI'] = rsi
-            df['SMAFAST'] = df['close'].rolling((sma_window*24)*2).mean()
-            df['SMASLOW'] = df['close'].rolling((rsi_window*24)*2).mean()
-            df['buysignal'] = np.where((df['SMAFAST'] > df['SMASLOW']), 1.0, 0.0)
-            df['sellsignal'] = np.where((df['SMAFAST'] < df['SMASLOW']), 1.0, 0.0)
 
-            df['position'] = df['buysignal'].diff()
             
-            df.to_csv(f'data/{stock}_{rsi_window}-{sma_window}.csv', index=False) # Save to CSV
+            df['EMAFAST'] = df['close'].ewm(span = (slow_window*24), adjust=False, min_periods=1).mean()
+            df['EMASLOW'] = df['close'].ewm(span = (fast_window*24), adjust=False, min_periods=1).mean()
+            df['longsignal'] = np.where(df['EMAFAST'] > df['EMASLOW'], 1.0, 0.0)
+            df['position'] = df['longsignal'].diff()
             
+            
+            # plt.figure(figsize = (20,10))
+            # # plot close price, short-term and long-term moving averages 
+            # df
+            # df['close'].plot(color = 'k', label = 'Close Price')
+            # df['SMAFAST'].plot(color = 'b',label = '20-day SMA'); 
+            # df['SMASLOW'].plot(color = 'g', label = '50-day SMA');
+            
+            # # plot ‘buy' signals
+            # plt.plot(df[df['position'] == 1].index, 
+            #         df['SMAFAST'][df['position'] == 1], 
+            #         '^', markersize = 15, color = 'g', label = 'buy')
+            # # plot ‘sell' signals
+            # plt.plot(df[df['position'] == -1].index, 
+            #         df['SMAFAST'][df['position'] == -1], 
+            #         'v', markersize = 15, color = 'r', label = 'sell')
+            # plt.ylabel('Price in Rupees', fontsize = 15 )
+            # plt.xlabel('Date', fontsize = 15 )
+            # plt.title('ULTRACEMCO', fontsize = 20)
+            # plt.legend()
+            # plt.grid()
+            # plt.show()
+
+            df.to_csv(f'data/{stock}_{slow_window}-{fast_window}.csv', index=False) # Save to CSV
+                
     except KeyboardInterrupt:
         print("done")   
         
@@ -99,10 +97,10 @@ preprocess_data() function:
 def preprocess_data(stock):
     list_of_stocks_processed = []
     args = []
-    for rsi_window in SMASLOW_WINDOW:
-        for sma_window in SMAFAST_WINDOW:
-            args.append((stock,rsi_window,sma_window))
-            list_of_stocks_processed.append(f'{stock}_{rsi_window}-{sma_window}')
+    for slow_window in SMASLOW_WINDOW:
+        for fast_window in SMAFAST_WINDOW:
+            args.append((stock,slow_window,fast_window))
+            list_of_stocks_processed.append(f'{stock}_{slow_window}-{fast_window}')
     with mp.Pool(15) as pool:
         pool.starmap(create_csvs,args)
         
@@ -116,12 +114,20 @@ if __name__ == "__main__":
 
     starttime = time.time()
     list_of_stocks = [
-    "AMZN",
     "AAPL",
-    "JNJ",
-    "JPM",
+    "MSFT",
+    "AMZN",
+    "GOOG",
+    "NVDA",
     "UNH",
+    "JNJ",
+    "FB",
+    "JPM",
+    "DIS",
     "V",
+    "KO",
+    "PEP",
+    "LLY",
     "TSLA"]
     # List of stock data csv's to be tested, located in "data/" folder 
     for stock in list_of_stocks:
