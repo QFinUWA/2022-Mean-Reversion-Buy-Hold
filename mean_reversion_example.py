@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from backtester import engine, tester
 from backtester import API_Interface as api
 
-training_period = 20 # How far the rolling average takes into calculation
+training_period = 50 # How far the rolling average takes into calculation
 standard_deviations = 3.5 # Number of Standard Deviations from the mean the Bollinger Bands sit
 
 '''
@@ -23,22 +23,27 @@ logic() function:
 def logic(account, lookback): # Logic function to be used for each time interval in backtest 
     
     today = len(lookback)-1
-    if(today > training_period): # If the lookback is long enough to calculate the Bollinger Bands
-
-        if(lookback['RSI'][today] < 30): # If current price is below lower Bollinger Band, enter a long position
-            # for position in account.positions: # Close all current positions
-            #     account.close_position(position, 1, lookback['close'][today])
-
-            if(account.buying_power > 0):
-                account.enter_position('long', account.buying_power, lookback['close'][today]) # Enter a long position
-            lookback["buys"][today] = lookback['close'][today]
-            
-        if(lookback['RSI'][today] > 70): # If today's price is above the upper Bollinger Band, enter a short position
-            for position in account.positions: # Close all current positions
+    yesterday =len(lookback)-2
+    price = lookback['close'][today]
+        
+    if(price < lookback['SMA'][today] and price > lookback['SMA'][yesterday]): #if the current price is below the 250 SMA we look for short positions
+            #we only want to evaluate potential longs if we have capital to do so
+        if(lookback['RSI'][today] > 20 and account.buying_power > 0): #if the RSI is above 20 and as such the stock is not 'oversold' we can look to short
+            account.enter_position('short', (account.buying_power), lookback['close'][today]) #enter a short position
+    if(lookback['RSI'][today] <= 20): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
+        for position in account.positions: # Close all current positions
+            if(position.type_ == 'short'):
                 account.close_position(position, 1, lookback['close'][today])
-            lookback["sells"][today] = lookback['close'][today]
-            # if(account.buying_power > 0):
-            #     account.enter_position('short', account.buying_power, lookback['close'][today]) # Enter a short position
+
+                        
+    if(price > lookback['SMA'][today] and price < lookback['SMA'][yesterday]): # means that the current price must be above the 250 SMA and as such we look for long positions
+        if(lookback['RSI'][today] <= 80 and account.buying_power > 0): # If the RSI is below 80 the stock is not yet 'overbought' and theres potentially more bullish movement we can take advantage on with a long position
+            account.enter_position('long', (account.buying_power), lookback['close'][today])
+    
+    if(lookback['RSI'][today] <= 20 and price > lookback['SMA'][today]): # the rsi of the current price must be below 20 and as such we look to close any shorts we have as the stock is now oversold and highly likely to return to the mean
+        for position in account.positions: # Close all current positions
+            if(position.type_ == 'long'):
+                account.close_position(position, 1, lookback['close'][today])
 
 '''
 preprocess_data() function:
@@ -52,7 +57,7 @@ preprocess_data() function:
 def preprocess_data(list_of_stocks):
     list_of_stocks_processed = []
     for stock in list_of_stocks:
-        df = pd.read_csv("data/" + stock + ".csv", parse_dates=[0])
+        df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
         print(df.head)
         
         df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
@@ -68,8 +73,8 @@ def preprocess_data(list_of_stocks):
         positive_change[difference > 0] = difference[difference > 0]
         negative_change[difference < 0] = difference[difference < 0]
         
-        positive_change_exponential = positive_change.ewm(com=14, min_periods=training_period).mean()
-        negative_change_exponential = negative_change.ewm(com=14, min_periods=training_period).mean()
+        positive_change_exponential = positive_change.ewm(com=training_period-1, min_periods=training_period).mean()
+        negative_change_exponential = negative_change.ewm(com=training_period-1, min_periods=training_period).mean()
         
         rs = abs(positive_change_exponential / negative_change_exponential)
         
@@ -79,7 +84,7 @@ def preprocess_data(list_of_stocks):
         df['buys'] = "" # Create a column to store the number of buys
         df['sells'] = "" # Create a column to store the number of sells
         
-        df['SMA_250'] = df['TP'].rolling(250).mean() # Calculate Moving Average of Typical Price
+        df['SMA'] = df['TP'].ewm(1).mean() # Calculate Moving Average of Typical Price
         df["SMA_25"] = df['TP'].ewm(25).mean() # Calculate Moving Average of Typical Price
         
         list_of_stocks_processed.append(stock + "_Processed")
@@ -100,7 +105,7 @@ def plot_stocks(df):
 
 if __name__ == "__main__":
     # list_of_stocks = ["TSLA_2020-03-01_2022-01-20_1min"] 
-    list_of_stocks = ["TSLA_2020-03-09_2022-01-28_15min", "AAPL_2020-03-24_2022-02-12_15min"] # List of stock data csv's to be tested, located in "data/" folder 
+    list_of_stocks = ["DIS", "AMZN", "JPM", "GOOG", "PEP", "NVDA"] # List of stock data csv's to be tested, located in "data/" folder 
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
     results = tester.test_array(list_of_stocks_proccessed, logic, chart=True) # Run backtest on list of stocks using the logic function
 
@@ -108,5 +113,5 @@ if __name__ == "__main__":
     print("standard deviations " + str(standard_deviations))
     df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
-    for stock in list_of_stocks_proccessed:
-        plot_stocks(stock)
+    # for stock in list_of_stocks_proccessed:
+    #     plot_stocks(stock)
