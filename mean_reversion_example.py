@@ -16,8 +16,8 @@ from backtester.account import LongPosition
 # SMASLOW = np.arange(0,155,5)
 
 # Harrys
-SMAFAST = np.arange(1,301,50)
-SMASLOW = np.arange(1,501,50)
+SMAFAST = np.arange(1,75,1)
+SMASLOW = np.arange(50,100,1)
 training_period = max([max(SMAFAST),max(SMASLOW)]) # How far the rolling average takes into calculation
 
 '''
@@ -51,8 +51,8 @@ def create_csvs(stock,sma_slow,sma_fast):
         if not os.path.exists(f'data/{stock}_{sma_slow}-{SMAFAST}.csv'): 
             df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
             df = df.iloc[::60, :]
-            df['EMAFAST'] = df['close'].ewm(span = (sma_slow*24), adjust=False, min_periods=1).mean()
-            df['EMASLOW'] = df['close'].ewm(span = (sma_fast*24), adjust=False, min_periods=1).mean()
+            df['EMAFAST'] = df['close'].ewm(span = (sma_fast*24), adjust=False, min_periods=1).mean()
+            df['EMASLOW'] = df['close'].ewm(span = (sma_slow*24), adjust=False, min_periods=1).mean()
             df['longsignal'] = np.where(df['EMAFAST'] > df['EMASLOW'], 1.0, 0.0)
             df['position'] = df['longsignal'].diff()
 

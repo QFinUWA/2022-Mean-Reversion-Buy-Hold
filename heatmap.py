@@ -20,22 +20,22 @@ df.to_csv("finished.csv")
 # quit()
 
 # df =pd.read_csv("results/AAPL.csv")
-df[["Stock","RSISMA"]] = df['Stock'].str.split('_', 1, expand=True)
+df[["Stock","SLOWFAST"]] = df['Stock'].str.split('_', 1, expand=True)
 
-df = df[["RSISMA",'Buy and Hold','Strategy']]
+df = df[["SLOWFAST",'Buy and Hold','Strategy']]
 aggregation_functions = {'Buy and Hold': 'mean', 'Strategy': 'mean'}
-df = df.groupby(df["RSISMA"]).aggregate(aggregation_functions)
+df = df.groupby(df["SLOWFAST"]).aggregate(aggregation_functions)
 df.to_csv("example.csv")
 df = df.reset_index()
 print(df.head())
-df[["RSI","SMA"]] = df['RSISMA'].str.split('-', 1, expand=True)
+df[["SLOW","FAST"]] = df['SLOWFAST'].str.split('-', 1, expand=True)
 
 
-df["RSI"] =pd.to_numeric(df["RSI"])
-df["SMA"] =pd.to_numeric(df["SMA"])
+df["SLOW"] =pd.to_numeric(df["SLOW"])
+df["FAST"] =pd.to_numeric(df["FAST"])
 df["Strategy"] =pd.to_numeric(df["Strategy"])
 df.to_csv("example.csv")
-heat_map = df.pivot(index='RSI', columns="SMA", values='Strategy')
+heat_map = df.pivot(index='SLOW', columns="FAST", values='Strategy')
 ax = sns.heatmap(heat_map)
 
 plt.show()
