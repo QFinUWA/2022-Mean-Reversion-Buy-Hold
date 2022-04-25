@@ -11,18 +11,20 @@ from backtester import engine, tester
 from backtester import API_Interface as api
 from backtester.account import LongPosition
 
+# Kanes
+# SMAFAST = np.arange(0,75,5)
+# SMASLOW = np.arange(0,155,5)
 
-SMAFAST_WINDOW = np.arange(0,305,5)
-SMASLOW_WINDOW = np.arange(0,505,5)
-training_period = max([max(SMAFAST_WINDOW),max(SMASLOW_WINDOW)]) # How far the rolling average takes into calculation
+# Harrys
+SMAFAST = np.arange(1,301,50)
+SMASLOW = np.arange(1,501,50)
+training_period = max([max(SMAFAST),max(SMASLOW)]) # How far the rolling average takes into calculation
 
 '''
 logic() function:
     Context: Called for every row in the input data.
-
     Input:  account - the account object
             lookback - the lookback dataframe, containing all data up until this point in time
-
     Output: none, but the account object will be modified on each call
 '''
 
@@ -30,58 +32,32 @@ def logic(account, lookback): # Logic function to be used for each time interval
     
     today = len(lookback)-1
     price = lookback['close'][today]
-    if(lookback['position'][today] == 1 and account.buying_power > 0):
+    if(lookback['position'][today] == 1): 
+       if(account.buying_power > 0):
         account.enter_position('long', account.buying_power, price)
+    #    else:
+    #         # for position in account.positions: # Close all current positions
+    #         #     account.close_position(position, 1, lookback['close'][today])
     elif(lookback['position'][today] == -1):
         for position in account.positions: # Close all current positions
-            account.close_position(position, 1, lookback['close'][today]) 
-
-'''
-preprocess_data() function:
-    Context: Called once at the beginning of the backtest. TOTALLY OPTIONAL. 
-             Each of these can be calculated at each time interval, however this is likely slower.
-    Input:  list_of_stocks - a list of stock data csvs to be processed
-    Output: list_of_stocks_processed - a list of processed stock data csvs
-'''
-
-def create_csvs(stock,slow_window,fast_window):
-    try:
-        if not os.path.exists(f'data/{stock}_{slow_window}-{fast_window}.csv'): 
-            df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
+            account.close_position(position, 1, lookback['close'][today])
+        # if(account.buying_power > 0): 
+        #     account.enter_position('short', account.buying_power, price)
+                
         
-            df['TP'] = (df['close'] + df['low'] + df['high'])/3 # Calculate Typical Price
 
-            
-            df['EMAFAST'] = df['close'].ewm(span = (slow_window*24), adjust=False, min_periods=1).mean()
-            df['EMASLOW'] = df['close'].ewm(span = (fast_window*24), adjust=False, min_periods=1).mean()
+def create_csvs(stock,sma_slow,sma_fast):
+    try:
+        if not os.path.exists(f'data/{stock}_{sma_slow}-{SMAFAST}.csv'): 
+            df = pd.read_csv("original_data/" + stock + ".csv", parse_dates=[0])
+            df = df.iloc[::60, :]
+            df['EMAFAST'] = df['close'].ewm(span = (sma_slow*24), adjust=False, min_periods=1).mean()
+            df['EMASLOW'] = df['close'].ewm(span = (sma_fast*24), adjust=False, min_periods=1).mean()
             df['longsignal'] = np.where(df['EMAFAST'] > df['EMASLOW'], 1.0, 0.0)
             df['position'] = df['longsignal'].diff()
-            
-            
-            # plt.figure(figsize = (20,10))
-            # # plot close price, short-term and long-term moving averages 
-            # df
-            # df['close'].plot(color = 'k', label = 'Close Price')
-            # df['SMAFAST'].plot(color = 'b',label = '20-day SMA'); 
-            # df['SMASLOW'].plot(color = 'g', label = '50-day SMA');
-            
-            # # plot ‘buy' signals
-            # plt.plot(df[df['position'] == 1].index, 
-            #         df['SMAFAST'][df['position'] == 1], 
-            #         '^', markersize = 15, color = 'g', label = 'buy')
-            # # plot ‘sell' signals
-            # plt.plot(df[df['position'] == -1].index, 
-            #         df['SMAFAST'][df['position'] == -1], 
-            #         'v', markersize = 15, color = 'r', label = 'sell')
-            # plt.ylabel('Price in Rupees', fontsize = 15 )
-            # plt.xlabel('Date', fontsize = 15 )
-            # plt.title('ULTRACEMCO', fontsize = 20)
-            # plt.legend()
-            # plt.grid()
-            # plt.show()
 
-            df.to_csv(f'data/{stock}_{slow_window}-{fast_window}.csv', index=False) # Save to CSV
-                
+
+            df.to_csv(f'data/{stock}_{sma_slow}-{sma_fast}.csv', index=False) # Save to CSV
     except KeyboardInterrupt:
         print("done")   
         
@@ -97,10 +73,10 @@ preprocess_data() function:
 def preprocess_data(stock):
     list_of_stocks_processed = []
     args = []
-    for slow_window in SMASLOW_WINDOW:
-        for fast_window in SMAFAST_WINDOW:
-            args.append((stock,slow_window,fast_window))
-            list_of_stocks_processed.append(f'{stock}_{slow_window}-{fast_window}')
+    for sma_slow in SMASLOW:
+        for sma_fast in SMAFAST:
+            args.append((stock,sma_slow,sma_fast))
+            list_of_stocks_processed.append(f'{stock}_{sma_slow}-{sma_fast}')
     with mp.Pool(15) as pool:
         pool.starmap(create_csvs,args)
         
@@ -131,7 +107,7 @@ if __name__ == "__main__":
     "TSLA"]
     # List of stock data csv's to be tested, located in "data/" folder 
     for stock in list_of_stocks:
-        name = f'results/{stock}{min(SMAFAST_WINDOW)}-{max(SMAFAST_WINDOW)}.csv'
+        name = f'results/{stock}{min(SMASLOW)}-{max(SMASLOW)}.csv'
         if not os.path.exists(name):
             list_of_stocks_proccessed = preprocess_data(stock) # Preprocess the data
             results = tester.test_array(list_of_stocks_proccessed, logic, chart=False) # Run backtest on list of stocks using the logic function
