@@ -27,7 +27,7 @@ aggregation_functions = {'Buy and Hold': 'mean', 'Strategy': 'mean'}
 df = df.groupby(df["SLOWFAST"]).aggregate(aggregation_functions)
 df.to_csv("example.csv")
 df = df.reset_index()
-print(df.head())
+print(df.max())
 df[["SLOW","FAST"]] = df['SLOWFAST'].str.split('-', 1, expand=True)
 
 

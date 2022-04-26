@@ -16,8 +16,10 @@ from backtester.account import LongPosition
 # SMASLOW = np.arange(0,155,5)
 
 # Harrys
-SMAFAST = np.arange(1,75,1)
-SMASLOW = np.arange(50,100,1)
+SMAFAST = [20]
+SMASLOW = [119]
+
+# Best Parameters is SMA FAST at 20 and SMA SLOW at 119 for average of about 90 percent return
 training_period = max([max(SMAFAST),max(SMASLOW)]) # How far the rolling average takes into calculation
 
 '''
@@ -32,17 +34,19 @@ def logic(account, lookback): # Logic function to be used for each time interval
     
     today = len(lookback)-1
     price = lookback['close'][today]
-    if(lookback['position'][today] == 1): 
-       if(account.buying_power > 0):
-        account.enter_position('long', account.buying_power, price)
-    #    else:
-    #         # for position in account.positions: # Close all current positions
-    #         #     account.close_position(position, 1, lookback['close'][today])
-    elif(lookback['position'][today] == -1):
+     
+    if(lookback['position'][today] == 1):
         for position in account.positions: # Close all current positions
             account.close_position(position, 1, lookback['close'][today])
-        # if(account.buying_power > 0): 
-        #     account.enter_position('short', account.buying_power, price)
+        if(account.buying_power > 0):
+            account.enter_position('long', account.buying_power, price)
+
+            
+    if(lookback['position'][today] == -1):
+        for position in account.positions: # Close all current positions
+            account.close_position(position, 1, lookback['close'][today])
+        if(account.buying_power > 0):
+            account.enter_position('short', account.buying_power, price)
                 
         
 
@@ -90,21 +94,7 @@ if __name__ == "__main__":
 
     starttime = time.time()
     list_of_stocks = [
-    "AAPL",
-    "MSFT",
-    "AMZN",
-    "GOOG",
-    "NVDA",
-    "UNH",
-    "JNJ",
-    "FB",
-    "JPM",
-    "DIS",
-    "V",
-    "KO",
-    "PEP",
-    "LLY",
-    "TSLA"]
+        "AAPL"]
     # List of stock data csv's to be tested, located in "data/" folder 
     for stock in list_of_stocks:
         name = f'results/{stock}{min(SMASLOW)}-{max(SMASLOW)}.csv'
