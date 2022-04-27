@@ -1,4 +1,5 @@
 from backtester import API_Interface as api
+import pandas as pd
 
 """
 Common stocks in S&P500:
@@ -35,22 +36,14 @@ get_intraday_extended() function:
             data/SYMBOL_STARTDATE_ENDDATE_INTERVAL.csv: the csv file containing the intraday_extended data
 
 """
-common_stocks = [
-"AAPL",
-"MSFT",
-"AMZN",
-"GOOG",
-"NVDA",
-"UNH",
-"JNJ",
-"FB",
-"JPM",
-"DIS",
-"V",
-"KO",
-"PEP",
-"LLY",
-"TSLA"]
+
+payload=pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+first_table = payload[0]
+df = first_table
+symbols = df['Symbol'].values.tolist()
+common_stocks = symbols[10:]
+
+
 
 for stock in common_stocks:
         api.get_intraday_extended(stock, 'all', '', '1min', True)

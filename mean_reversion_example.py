@@ -16,8 +16,8 @@ from backtester.account import LongPosition
 # SMASLOW = np.arange(0,155,5)
 
 # Harrys
-SMAFAST = [20]
-SMASLOW = [119]
+SMAFAST = np.arange(1, 306, 5)
+SMASLOW = np.arange(1,506, 5)
 
 # Best Parameters is SMA FAST at 20 and SMA SLOW at 119 for average of about 90 percent return
 training_period = max([max(SMAFAST),max(SMASLOW)]) # How far the rolling average takes into calculation
@@ -93,8 +93,12 @@ if __name__ == "__main__":
     # print(len(np.arange(75,155,5)))
 
     starttime = time.time()
-    list_of_stocks = [
-        "AAPL"]
+    payload=pd.read_html('https://en.wikipedia.org/wiki/List_of_S%26P_500_companies')
+    first_table = payload[0]
+    df = first_table
+    symbols = df['Symbol'].values.tolist()
+    common_stocks = symbols[10:]
+    list_of_stocks = common_stocks
     # List of stock data csv's to be tested, located in "data/" folder 
     for stock in list_of_stocks:
         name = f'results/{stock}{min(SMASLOW)}-{max(SMASLOW)}.csv'
