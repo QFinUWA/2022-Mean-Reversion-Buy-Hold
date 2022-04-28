@@ -105,8 +105,8 @@ if __name__ == "__main__":
     list_of_stocks_proccessed = preprocess_data(list_of_stocks) # Preprocess the data
     results = tester.test_array(list_of_stocks_proccessed, logic, chart=True) # Run backtest on list of stocks using the logic function
 
-    print("training period " + str(training_period))
-    print("standard deviations " + str(standard_deviations))
+    # print("training period " + str(training_period))
+    # print("standard deviations " + str(standard_deviations))
     df = pd.DataFrame(list(results), columns=["Buy and Hold","Strategy","Longs","Sells","Shorts","Covers","Stdev_Strategy","Stdev_Hold","Stock"]) # Create dataframe of results
     df.to_csv("results/Test_Results.csv", index=False) # Save results to csv
     # for stock in list_of_stocks_proccessed:
